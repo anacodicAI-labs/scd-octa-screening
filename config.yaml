@@ -1,0 +1,13 @@
+project:
+  name: scd-octa
+
+paths:
+  data_root: data/raw/scd-data
+  results_dir: results
+  # When set, modern train/eval and baseline train mirror plots + JSON here as well as under results/.
+  reports_dir: reports
+  models_dir: models
+
+run:
+  target_sensitivity: 0.95
+

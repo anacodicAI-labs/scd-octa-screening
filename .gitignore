@@ -1,0 +1,93 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+/lib/
+/lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+
+# --- Virtual environments ---
+.venv/
+venv/
+ENV/
+env/
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
+# --- OS / editors ---
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.code-workspace
+
+# --- Environment & secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+
+# --- Project outputs (regenerate with make / scripts) ---
+results/
+models/*
+!models/.gitkeep
+reports/
+*.pt
+*.pth
+*.ckpt
+*.joblib
+*.pkl
+*.pickle
+
+# --- Raw / sensitive imaging data (do not commit PHI) ---
+# Keep directory placeholders; ignore actual exports under data/raw/.
+data/raw/**
+!data/raw/.gitkeep
+
+# Optional: real labels (keep labels_template.csv tracked)
+data/processed/labels.csv
+
+# Generated split (use split_v1.example.json as template)
+data/processed/splits/split_v1.json
+
+# --- Torch / HF caches (if used) ---
+.cache/
+torch_hub/
+
+# --- Logs ---
+*.log
+logs/
