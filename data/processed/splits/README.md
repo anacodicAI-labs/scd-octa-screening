@@ -10,7 +10,7 @@ make split
 
 Requirements:
 
-- `data/processed/labels.csv` must list enough **unique** labeled subjects (typically **≥ 3**) after optional `gradable` filtering inside `scd_octa.splits`.
+- `results/dataset_index.csv` must list enough **unique** labeled subjects (typically **≥ 3**) after optional `gradable` filtering inside `scd_octa.splits`.
 - Until this file exists, **`make modern_train`** / **`make modern_eval`** will fail because they pass `--split-json` to the modern pipeline.
 
 ## `split_v1.example.json` (template only)
