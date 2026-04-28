@@ -27,13 +27,13 @@ mkdir -p data/raw
 ln -sf ../../../scd-data data/raw/scd-data
 ```
 
-Copy `data/processed/labels_template.csv` → `data/processed/labels.csv` and fill labels (`0`/`1`), **or** use the recommended columns for screening + gradable eyes: `subject_id`, `eye`, `octa_abnormal_label`, `gradable` (see **`../docs/architecture.txt`**).
+Use `results/dataset_index.csv` for training/split/eval labels metadata (`subject_id` required; labels can be in `label` or `octa_abnormal_label` with optional `gradable`/`eye`).
 
 ## End-to-end order (recommended)
 
 1. **`make index`** — inventory (needs `data/raw/scd-data` symlink).
 2. **`make biomarkers`** — vessel-density features from binarized masks (same data root).
-3. Edit **`data/processed/labels.csv`** (subject-level `label` or eye-level + `gradable`).
+3. Edit **`results/dataset_index.csv`** (subject-level `label` or eye-level + `gradable`).
 4. **`make split`** — writes **`data/processed/splits/split_v1.json`** (needs enough unique labeled subjects; ≥3). Required before **`make modern_train`** / **`make modern_eval`**.
 5. **`make train`** — sklearn baseline; if `split_v1.json` exists, uses the **same** train/val/test subjects as the deep model.
 6. **`make modern_train`** — 4-view deep model → **`results/modern/<OPTION>/best_model.pt`** (GPU used automatically if PyTorch sees CUDA).
@@ -58,7 +58,7 @@ Copy `data/processed/labels_template.csv` → `data/processed/labels.csv` and fi
 | Variable | Default | Used by |
 |----------|---------|---------|
 | `DATA_ROOT` | `./data/raw/scd-data` | `index`, `biomarkers`, `modern_*` |
-| `LABELS` | `./data/processed/labels.csv` | `split`, `train`, `modern_*` |
+| `LABELS` | `./results/dataset_index.csv` | `split`, `train`, `modern_*` |
 | `SPLIT` | `./data/processed/splits/split_v1.json` | `train` (if file exists), `modern_train`, `modern_eval` |
 | `MODEL` | `logistic` | `train` — `logistic` or `random_forest` |
 | `OPTION` | `optionA` | `modern_train`, `modern_eval`, default `CKPT` path |

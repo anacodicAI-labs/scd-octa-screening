@@ -1,11 +1,21 @@
 .PHONY: index biomarkers train split modern_train modern_eval modern_eval_external notebook
 
+# Use repo .venv when present so deps (timm, torch, etc.) match requirements.txt.
+# Override explicitly: make PYTHON=/path/to/python modern_train
+ifndef PYTHON
+  ifneq ($(wildcard $(CURDIR)/.venv/bin/python),)
+    PYTHON := $(CURDIR)/.venv/bin/python
+  else
+    PYTHON := python3
+  endif
+endif
+
 PYTHONPATH=./src
 DATA_ROOT=./data/raw/scd-data
 RESULTS=./results
 RESULTS_BASELINE=./results/baseline
 MODELS=./models
-LABELS=./data/processed/labels.csv
+LABELS=./results/dataset_index.csv
 SPLIT=./data/processed/splits/split_v1.json
 OPTION=optionA
 FUSION=concat_mlp
@@ -20,13 +30,13 @@ EXT_LABELS?=./data/processed/labels_external.csv
 EXT_OUT?=./results/modern_external/run1
 
 index:
-	PYTHONPATH=$(PYTHONPATH) python3 -m scd_octa.make_index --data-root "$(DATA_ROOT)" --out-dir "$(RESULTS)"
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m scd_octa.make_index --data-root "$(DATA_ROOT)" --out-dir "$(RESULTS)"
 
 biomarkers:
-	PYTHONPATH=$(PYTHONPATH) python3 -m scd_octa.compute_biomarkers --data-root "$(DATA_ROOT)" --out-dir "$(RESULTS)"
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m scd_octa.compute_biomarkers --data-root "$(DATA_ROOT)" --out-dir "$(RESULTS)"
 
 train:
-	PYTHONPATH=$(PYTHONPATH) python3 -m scd_octa.train_baseline \
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m scd_octa.train_baseline \
 		--biomarkers-csv "$(RESULTS)/biomarkers_vessel_density.csv" \
 		--labels-csv "$(LABELS)" \
 		--out-dir "$(RESULTS_BASELINE)" \
@@ -36,10 +46,10 @@ train:
 		--target-sensitivity 0.95
 
 split:
-	PYTHONPATH=$(PYTHONPATH) python3 -m scd_octa.splits --labels-csv "$(LABELS)" --out "$(SPLIT)" --seed 42 --test-size 0.2 --val-size 0.2
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m scd_octa.splits --labels-csv "$(LABELS)" --out "$(SPLIT)" --seed 42 --test-size 0.2 --val-size 0.2
 
 modern_train:
-	PYTHONPATH=$(PYTHONPATH) python3 -m scd_octa.modern_model.train \
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m scd_octa.modern_model.train \
 		--data-root "$(DATA_ROOT)" \
 		--labels-csv "$(LABELS)" \
 		--split-json "$(SPLIT)" \
@@ -52,7 +62,7 @@ modern_train:
 		--target-sensitivity 0.95
 
 modern_eval:
-	PYTHONPATH=$(PYTHONPATH) python3 -m scd_octa.modern_model.eval \
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m scd_octa.modern_model.eval \
 		--data-root "$(DATA_ROOT)" \
 		--labels-csv "$(LABELS)" \
 		--split-json "$(SPLIT)" \
@@ -63,7 +73,7 @@ modern_eval:
 # External cohort: set EXT_DATA, EXT_LABELS, EXT_OUT, OPTION (for ckpt path), or pass CKPT=...
 CKPT?=$(RESULTS)/modern/$(OPTION)/best_model.pt
 modern_eval_external:
-	PYTHONPATH=$(PYTHONPATH) python3 -m scd_octa.modern_model.eval_external \
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m scd_octa.modern_model.eval_external \
 		--external-data-root "$(EXT_DATA)" \
 		--external-labels-csv "$(EXT_LABELS)" \
 		--ckpt "$(CKPT)" \
