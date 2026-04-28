@@ -1,0 +1,38 @@
+{
+  "option": "optionA",
+  "fusion": "concat_mlp",
+  "encoder": "efficientnet_b0",
+  "emb_dim": 256,
+  "train": {
+    "epochs": 10,
+    "batch_size": 8,
+    "lr": 0.0003,
+    "weight_decay": 0.0001,
+    "pos_weight": 1.0
+  },
+  "split_json": "data/processed/splits/split_v1.json",
+  "val_metrics_at_threshold": {
+    "threshold": 0.460561,
+    "sensitivity": 1.0,
+    "specificity": 0.5,
+    "precision": 0.5,
+    "f1": 0.6666666666666666,
+    "accuracy": 0.6666666666666666,
+    "auc": 0.5,
+    "tp": 1,
+    "tn": 1,
+    "fp": 1,
+    "fn": 0,
+    "n": 3
+  },
+  "target_sensitivity": 0.95,
+  "chosen_threshold_on_val": 0.460561,
+  "artifacts": {
+    "best_model_pt": "results/modern/optionA/best_model.pt",
+    "val_predictions_csv": "results/modern/optionA/val_predictions.csv",
+    "roc_val_png": "results/modern/optionA/roc_val.png",
+    "pr_val_png": "results/modern/optionA/pr_val.png",
+    "calibration_val_png": "results/modern/optionA/calibration_val.png"
+  },
+  "note": "This report is computed on VAL for visibility. Final performance must be computed on TEST using modern_model/eval.py without re-tuning on test."
+}

@@ -1,0 +1,48 @@
+{
+  "mode": "split_json",
+  "model_type": "logistic",
+  "split_json": "data/processed/splits/split_v1.json",
+  "threshold_tuned_on": "val",
+  "metrics_reported_on": "test",
+  "target_sensitivity": 0.95,
+  "chosen_threshold": 0.498565,
+  "feature_cols": [
+    "od_svp_vessel_density",
+    "od_dcp_vessel_density",
+    "os_svp_vessel_density",
+    "os_dcp_vessel_density"
+  ],
+  "artifacts": {
+    "model_path": "models/baseline_logistic.joblib"
+  },
+  "counts": {
+    "train_subjects": 12,
+    "val_subjects": 3,
+    "test_subjects": 4
+  },
+  "metrics_at_threshold": {
+    "threshold": 0.498565,
+    "sensitivity": 0.3333333333333333,
+    "specificity": 1.0,
+    "precision": 1.0,
+    "f1": 0.5,
+    "accuracy": 0.5,
+    "auc": 1.0,
+    "tp": 1,
+    "tn": 1,
+    "fp": 0,
+    "fn": 2,
+    "n_test": 4
+  },
+  "note": "Threshold is chosen on VAL when available (else TRAIN). Final row reports metrics on TEST when available (else VAL, else TRAIN).",
+  "model": {
+    "type": "LogisticRegression",
+    "coef": {
+      "od_svp_vessel_density": 0.14753952873103324,
+      "od_dcp_vessel_density": 0.13194123309684783,
+      "os_svp_vessel_density": 0.028342156358362305,
+      "os_dcp_vessel_density": 0.032213191503786466
+    },
+    "intercept": -0.10946300258332979
+  }
+}

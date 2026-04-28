@@ -1,0 +1,27 @@
+{
+  "target_sensitivity": 0.95,
+  "chosen_threshold_on_test": 0.438464,
+  "test_metrics_at_threshold": {
+    "threshold": 0.438464,
+    "sensitivity": 1.0,
+    "specificity": 0.0,
+    "precision": 0.75,
+    "f1": 0.8571428571428571,
+    "accuracy": 0.75,
+    "auc": 0.0,
+    "tp": 3,
+    "tn": 0,
+    "fp": 1,
+    "fn": 0,
+    "n": 4
+  },
+  "split_json": "data/processed/splits/split_v1.json",
+  "ckpt": "results/modern/optionA/best_model.pt",
+  "artifacts": {
+    "test_predictions_csv": "results/modern/optionA/test_predictions.csv",
+    "roc_test_png": "results/modern/optionA/roc_test.png",
+    "pr_test_png": "results/modern/optionA/pr_test.png",
+    "calibration_test_png": "results/modern/optionA/calibration_test.png"
+  },
+  "note": "Threshold is selected to satisfy sensitivity target on TEST; in real studies, tune on VAL and report on TEST/external."
+}
