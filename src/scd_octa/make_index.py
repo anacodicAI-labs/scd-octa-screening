@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
-from dataclasses import asdict
 from pathlib import Path
 
-from .io import build_subject_records, records_to_dataframe
+from .io import build_subject_records_nested_or_flat, records_to_dataframe
+
+
+def _placeholder_label(subject_id: str) -> int:
+    """Stable 0/1 per subject so baseline training has both classes before real labels exist."""
+    h = hashlib.sha256(str(subject_id).encode()).digest()
+    return int(h[0]) % 2
 
 
 def _count_nonempty(row: dict[str, str], cols: list[str]) -> int:
@@ -22,7 +28,7 @@ def main() -> int:
     out_dir: Path = args.out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    records = build_subject_records(data_root)
+    records = build_subject_records_nested_or_flat(data_root)
     df = records_to_dataframe(records)
 
     # Add simple completeness counts
@@ -34,6 +40,8 @@ def main() -> int:
     df["n_total"] = df["n_original"] + df["n_binarized"]
     df["is_complete_8"] = df["n_total"] == 8
 
+    df["label"] = df["subject_id"].astype(str).map(_placeholder_label).astype(int)
+
     csv_path = out_dir / "dataset_index.csv"
     df.to_csv(csv_path, index=False)
 
@@ -44,6 +52,10 @@ def main() -> int:
         "subjects_complete": df.loc[df["is_complete_8"], "subject_id"].tolist(),
         "subjects_incomplete": df.loc[~df["is_complete_8"], "subject_id"].tolist(),
         "note": "This index only includes subject folders with at least one recognized .tif file.",
+        "labels_note": (
+            "`label` is a deterministic placeholder (0/1 from subject_id) so `make train` runs; "
+            "replace with real screening outcomes when available."
+        ),
     }
 
     json_path = out_dir / "dataset_summary.json"

@@ -29,7 +29,8 @@ class TimmEncoder(nn.Module):
             import timm  # type: ignore
         except Exception as e:  # pragma: no cover
             raise RuntimeError(
-                "Missing dependency: timm. Install it (see code/requirements.txt)."
+                "Missing dependency: timm. From the repo root: pip install -r requirements.txt "
+                "(or use the project's .venv — `make` picks .venv/bin/python when present)."
             ) from e
 
         self.backbone = timm.create_model(

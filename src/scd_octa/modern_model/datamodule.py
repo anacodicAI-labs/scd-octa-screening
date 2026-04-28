@@ -11,7 +11,11 @@ import tifffile
 import torch
 from torch.utils.data import Dataset
 
-from ..io import build_subject_records
+from ..io import (
+    build_subject_records_nested_or_flat,
+    merge_subject_records,
+    subject_records_from_index_dataframe,
+)
 from ..splits import PatientSplit, load_split
 
 ViewName = Literal["od_svp", "od_dcp", "os_svp", "os_dcp"]
@@ -37,6 +41,21 @@ def _to_3ch_tensor(img01: np.ndarray) -> torch.Tensor:
     return t
 
 
+def cnn_extraction(path: Path, image_size: int = 224) -> torch.Tensor:
+    """
+    Read one OCTA TIFF image and return a 3xHxW tensor for CNN backbones.
+    """
+    img01 = _read_tif_as_float01(path)
+    x = _to_3ch_tensor(img01)
+    x = torch.nn.functional.interpolate(
+        x.unsqueeze(0),
+        size=(int(image_size), int(image_size)),
+        mode="bilinear",
+        align_corners=False,
+    ).squeeze(0)
+    return x
+
+
 @dataclass(frozen=True)
 class LabelConfig:
     """
@@ -57,21 +76,29 @@ class LabelConfig:
 def load_labels_as_subject_targets(labels_csv: Path, cfg: LabelConfig = LabelConfig()) -> pd.DataFrame:
     df = pd.read_csv(labels_csv)
     if "subject_id" not in df.columns:
-        raise SystemExit("labels.csv must contain subject_id.")
+        raise SystemExit("dataset_index.csv must contain subject_id.")
     df["subject_id"] = df["subject_id"].astype(str)
 
-    # Legacy simple format
-    if "label" in df.columns and cfg.label_col not in df.columns:
+    # Subject-level labels (preferred when present): subject_id + label
+    if "label" in df.columns:
         out = df[["subject_id", "label"]].copy()
         out["label"] = out["label"].astype(int)
-        out["gradable"] = 1
+        if "gradable" in df.columns:
+            out["gradable"] = df["gradable"].astype(int)
+        else:
+            out["gradable"] = 1
         return out
 
-    # Recommended eye-level format
+    # Eye-level format: octa_abnormal_label + gradable (+ optional eye)
     needed = {cfg.label_col, cfg.gradable_col}
     missing = needed.difference(df.columns)
     if missing:
-        raise SystemExit(f"labels.csv is missing columns: {sorted(missing)}")
+        raise SystemExit(
+            "dataset_index.csv needs either:\n"
+            "  - subject-level: columns subject_id, label (0/1), optional gradable\n"
+            "  - eye-level: columns subject_id, octa_abnormal_label, gradable (and usually eye)\n"
+            f"Missing for eye-level mode: {sorted(missing)}"
+        )
 
     df[cfg.gradable_col] = df[cfg.gradable_col].astype(int)
     df[cfg.label_col] = df[cfg.label_col].astype(int)
@@ -80,7 +107,7 @@ def load_labels_as_subject_targets(labels_csv: Path, cfg: LabelConfig = LabelCon
     if cfg.eye_col in df.columns:
         gradable_df = df[df[cfg.gradable_col] == 1]
         if len(gradable_df) == 0:
-            raise SystemExit("No gradable rows found in labels.csv (gradable==1).")
+            raise SystemExit("No gradable rows found in dataset_index.csv (gradable==1).")
         agg = (
             gradable_df.groupby("subject_id")[cfg.label_col]
             .max()
@@ -96,6 +123,23 @@ def load_labels_as_subject_targets(labels_csv: Path, cfg: LabelConfig = LabelCon
     return out
 
 
+def build_merged_record_map(data_root: Path, index_csv: Path | None) -> dict[str, SubjectRecord]:
+    """Filesystem under ``data_root`` plus optional path columns from ``index_csv`` (e.g. dataset_index.csv)."""
+    fs_records = build_subject_records_nested_or_flat(data_root)
+    fs_by_id = {r.subject_id: r for r in fs_records}
+    csv_by_id: dict[str, SubjectRecord] = {}
+    if index_csv is not None and index_csv.is_file():
+        full_df = pd.read_csv(index_csv)
+        csv_by_id = subject_records_from_index_dataframe(full_df)
+    all_ids = set(fs_by_id) | set(csv_by_id)
+    out: dict[str, SubjectRecord] = {}
+    for sid in all_ids:
+        merged = merge_subject_records(fs_by_id.get(sid), csv_by_id.get(sid))
+        if merged is not None:
+            out[sid] = merged
+    return out
+
+
 class FourViewOCTADataset(Dataset):
     def __init__(
         self,
@@ -106,15 +150,14 @@ class FourViewOCTADataset(Dataset):
         image_size: int = 224,
         augment: bool = False,
         seed: int = 42,
+        index_csv: Path | None = None,
     ) -> None:
         self.data_root = data_root
         self.image_size = int(image_size)
         self.augment = bool(augment)
         self.rng = np.random.default_rng(int(seed))
 
-        # Build record map from filesystem
-        records = build_subject_records(data_root)
-        self.record_by_id = {r.subject_id: r for r in records}
+        self.record_by_id = build_merged_record_map(data_root, index_csv)
 
         labels_df = labels_df.copy()
         labels_df["subject_id"] = labels_df["subject_id"].astype(str)
@@ -143,14 +186,7 @@ class FourViewOCTADataset(Dataset):
             x = torch.zeros(3, self.image_size, self.image_size, dtype=torch.float32)
             return x, 0
 
-        img01 = _read_tif_as_float01(p)
-        x = _to_3ch_tensor(img01)
-        x = torch.nn.functional.interpolate(
-            x.unsqueeze(0),
-            size=(self.image_size, self.image_size),
-            mode="bilinear",
-            align_corners=False,
-        ).squeeze(0)
+        x = cnn_extraction(p, image_size=self.image_size)
         return x, 1
 
     def _augment(self, x: torch.Tensor) -> torch.Tensor:

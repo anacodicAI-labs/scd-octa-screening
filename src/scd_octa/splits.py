@@ -99,7 +99,7 @@ def save_split(split: PatientSplit, path: Path) -> None:
 def _read_labels_subject_ids(labels_csv: Path) -> list[str]:
     df = pd.read_csv(labels_csv)
     if "subject_id" not in df.columns:
-        raise SystemExit("labels.csv must contain a subject_id column.")
+        raise SystemExit("dataset_index.csv must contain a subject_id column.")
     df["subject_id"] = df["subject_id"].astype(str)
 
     # If gradable exists, keep only gradable for split-making (optional but useful)
@@ -112,7 +112,7 @@ def _read_labels_subject_ids(labels_csv: Path) -> list[str]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Create a reproducible patient-level split JSON.")
-    ap.add_argument("--labels-csv", type=Path, required=True, help="labels.csv with subject_id (and optional gradable).")
+    ap.add_argument("--labels-csv", type=Path, required=True, help="dataset_index.csv with subject_id (and optional gradable).")
     ap.add_argument("--out", type=Path, required=True, help="Output split JSON path, e.g. data/processed/splits/split_v1.json")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--test-size", type=float, default=0.2)
