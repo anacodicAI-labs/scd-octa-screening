@@ -70,6 +70,7 @@ def main() -> int:
         image_size=args.image_size,
         augment=False,
         seed=42,
+        index_csv=args.labels_csv,
     )
     test_loader = DataLoader(test_ds, batch_size=args.batch_size, shuffle=False, num_workers=0)
 

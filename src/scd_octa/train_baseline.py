@@ -111,7 +111,7 @@ def _build_sklearn_model(model_type: ModelType, seed: int) -> LogisticRegression
         return RandomForestClassifier(
             n_estimators=400,
             max_depth=None,
-            class_weight="balanced_subsamples",
+            class_weight="balanced_subsample",
             random_state=seed,
             n_jobs=-1,
         )
@@ -184,9 +184,11 @@ def main() -> int:
     if "gradable" in labels_df.columns:
         labels_df = labels_df[labels_df["gradable"].astype(int) == 1].copy()
     if labels_df.empty:
-        raise SystemExit("No gradable labeled subjects after loading labels.csv.")
+        raise SystemExit("No gradable labeled subjects after loading dataset_index.csv.")
 
     bio = pd.read_csv(args.biomarkers_csv)
+    bio["subject_id"] = bio["subject_id"].astype(str)
+    labels_df["subject_id"] = labels_df["subject_id"].astype(str)
     df = bio.merge(labels_df[["subject_id", "label"]], on="subject_id", how="inner")
     df = df.dropna(subset=["label"])
     df["subject_id"] = df["subject_id"].astype(str)
@@ -201,6 +203,11 @@ def main() -> int:
     for c in feature_cols:
         if c not in df.columns:
             raise SystemExit(f"Missing biomarker column: {c}")
+
+    for c in feature_cols:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+        med = float(df[c].median())
+        df[c] = df[c].fillna(med if pd.notna(med) else 0.0)
 
     use_split = args.split_json is not None and args.split_json.is_file()
 

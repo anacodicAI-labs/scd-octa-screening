@@ -1,0 +1,132 @@
+Metadata-Version: 2.4
+Name: scd-octa
+Version: 0.1.0
+Summary: SCD OCTA screening pipeline (index, biomarkers, baseline, modern model)
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: tifffile==2025.5.10
+Requires-Dist: pillow==11.2.1
+Requires-Dist: numpy==2.2.4
+Requires-Dist: pandas==2.2.3
+Requires-Dist: matplotlib==3.10.1
+Requires-Dist: scikit-learn==1.6.1
+Requires-Dist: joblib==1.4.2
+Requires-Dist: jupyterlab==4.3.6
+Requires-Dist: tqdm==4.67.1
+Requires-Dist: pyyaml==6.0.2
+Requires-Dist: torch==2.7.0
+Requires-Dist: torchvision==0.22.0
+Requires-Dist: timm==1.0.15
+
+## SCD OCTA screening — code + notebooks
+
+We use **both**:
+
+- **Python modules** under `src/scd_octa/` for reproducible runs (`make` targets).
+- **Notebooks** under `notebooks/` for class demos (thin wrappers that call `make`).
+
+Design notes live in the parent **`mass-general/docs/`** tree (start with **`../docs/architecture.txt`** when your cwd is `scd-octa-screening/`).
+
+## Local setup
+
+From **this directory** (repo root):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -e .
+```
+
+(`pyproject.toml` lists the same pins as `requirements.txt`; you can still use `pip install -r requirements.txt` if you prefer that workflow.)
+
+Symlink raw OCTA data (adjust source path to your `scd-data` tree):
+
+```bash
+mkdir -p data/raw
+ln -sf ../../../scd-data data/raw/scd-data
+```
+
+Use `results/dataset_index.csv` for training/split/eval labels metadata (`subject_id` required; labels can be in `label` or `octa_abnormal_label` with optional `gradable`/`eye`).
+
+## End-to-end order (recommended)
+
+1. **`make index`** — inventory (needs `data/raw/scd-data` symlink).
+2. **`make biomarkers`** — vessel-density features from binarized masks (same data root).
+3. Edit **`results/dataset_index.csv`** (subject-level `label` or eye-level + `gradable`).
+4. **`make split`** — writes **`data/processed/splits/split_v1.json`** (needs enough unique labeled subjects; ≥3). Required before **`make modern_train`** / **`make modern_eval`**.
+5. **`make train`** — sklearn baseline; if `split_v1.json` exists, uses the **same** train/val/test subjects as the deep model.
+6. **`make modern_train`** — 4-view deep model → **`results/modern/<OPTION>/best_model.pt`** (GPU used automatically if PyTorch sees CUDA).
+7. **`make modern_eval`** — test metrics + plots into the same **`results/modern/<OPTION>/`** folder.
+8. Optional: **`make modern_eval_external`** — same checkpoint on another center’s root + labels (see Makefile variables below).
+
+## Makefile pipeline
+
+| Target | What it does |
+|--------|----------------|
+| `make index` | Dataset index → `results/dataset_index.csv`, `results/dataset_summary.json` |
+| `make biomarkers` | Vessel density biomarkers → `results/biomarkers_vessel_density.csv` |
+| `make train` | Baseline (`MODEL=logistic` or `random_forest`) → `results/baseline/`; uses `split_v1.json` when it exists so splits match the deep model |
+| `make split` | Patient-level split → `data/processed/splits/split_v1.json` (needs enough labeled subjects) |
+| `make modern_train` | 4-view deep model → `results/modern/$(OPTION)/` (`OPTION`, `FUSION`, `EPOCHS`, `BATCH`, optional `ENCODER_TIMM`) |
+| `make modern_eval` | Test-set eval + plots → same folder as the trained option |
+| `make modern_eval_external` | Run frozen `CKPT` on `EXT_DATA` + `EXT_LABELS` → `EXT_OUT` (override all four in the command line) |
+| `make notebook` | Start JupyterLab |
+
+### Makefile variables (override on the command line)
+
+| Variable | Default | Used by |
+|----------|---------|---------|
+| `DATA_ROOT` | `./data/raw/scd-data` | `index`, `biomarkers`, `modern_*` |
+| `LABELS` | `./results/dataset_index.csv` | `split`, `train`, `modern_*` |
+| `SPLIT` | `./data/processed/splits/split_v1.json` | `train` (if file exists), `modern_train`, `modern_eval` |
+| `MODEL` | `logistic` | `train` — `logistic` or `random_forest` |
+| `OPTION` | `optionA` | `modern_train`, `modern_eval`, default `CKPT` path |
+| `FUSION` | `concat_mlp` | `modern_train` — `concat_mlp` or `attn_pool` (`optionD` forces transformer fusion in code) |
+| `EPOCHS`, `BATCH` | `10`, `8` | `modern_train` |
+| `ENCODER_TIMM` | *(empty)* | `modern_train` — optional timm name, e.g. `efficientnet_b2`, `densenet121` |
+| `CKPT` | `results/modern/$(OPTION)/best_model.pt` | `modern_eval_external` |
+| `EXT_DATA`, `EXT_LABELS`, `EXT_OUT` | see `Makefile` | `modern_eval_external` |
+
+**Modern options:** `OPTION=optionA` … `optionD` (defaults in `modern_model/train.py`: A=EfficientNet-B0, B=ConvNeXt-Tiny, C=Swin-Tiny, D=ConvNeXt + tiny transformer fusion).
+
+Examples:
+
+```bash
+make split
+make train
+make modern_train OPTION=optionA FUSION=concat_mlp EPOCHS=10 BATCH=8
+make modern_eval OPTION=optionA
+
+# Random forest baseline + EfficientNet-B2 backbone
+make train MODEL=random_forest
+ENCODER_TIMM=efficientnet_b2 make modern_train OPTION=optionA
+
+# External site (set paths to real cohort)
+make modern_eval_external EXT_DATA=/path/to/external/octa EXT_LABELS=/path/to/external_labels.csv EXT_OUT=results/modern_external/site1 CKPT=results/modern/optionA/best_model.pt
+```
+
+**Reports folder:** if `config.yaml` has `paths.reports_dir: reports`, training and evaluation also copy figures and JSON into `reports/figures/...` and `reports/tables/...` beside `results/`.
+
+**Advanced (no Make):** same behavior via `python3 -m scd_octa.<module>` — see `--help` on `scd_octa.train_baseline`, `scd_octa.splits`, `scd_octa.modern_model.train`, `scd_octa.modern_model.eval`, `scd_octa.modern_model.eval_external` for flags such as `--target-sensitivity`, `--clinical-task` (screening only), and `--reports-dir`.
+
+## Notebooks
+
+| Notebook | Purpose |
+|----------|---------|
+| `01_data_audit.ipynb` | Inventory + biomarker demo |
+| `02_biomarkers_baseline.ipynb` | `make biomarkers` + `make train` |
+| `03_modern_model_train.ipynb` | `make split` + `make modern_train` |
+| `04_validation_thresholding.ipynb` | Inspect reports / run `make modern_eval` |
+| `05_error_analysis.ipynb` | Load `test_predictions.csv` for errors (baseline: `results/baseline/`; deep model: `results/modern/<OPTION>/`) |
+
+Run Jupyter from repo root or use `%cd ..` in the first cell; notebooks use `chdir` to the parent of `notebooks/`.
+
+## Outputs (gitignored)
+
+- `results/` — regenerated by pipelines (`dataset_*`, `biomarkers_*`, `baseline/`, `modern/<OPTION>/`, optional `modern_external/…`)  
+- `results/modern/<OPTION>/best_model.pt` — deep model checkpoint (+ `train_report.json`, val plots)  
+- `models/baseline_logistic.joblib` or `models/baseline_random_forest.joblib` — sklearn baseline (`MODEL=…`, not committed)  
+- `data/processed/splits/split_v1.json` — generated by `make split` (not committed; see `split_v1.example.json`)
+
+**Legacy file (safe to delete):** if you still see **`results/train_eval_report.json`** at the top of `results/` from an older layout, remove it after you run **`make train`** once — the canonical baseline report is **`results/baseline/train_eval_report.json`**.

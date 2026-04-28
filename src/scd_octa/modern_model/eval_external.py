@@ -1,7 +1,7 @@
 """
 Evaluate a trained modern checkpoint on an **external** cohort (different data root / labels).
 
-All subjects present in labels.csv (after the same gradable + join rules as training) who
+All subjects present in dataset_index.csv (after the same gradable + join rules as training) who
 also have image files under ``data_root`` are scored — no split JSON required.
 """
 
@@ -16,12 +16,11 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from ..io import build_subject_records
 from ..metrics import evaluate_binary_at_threshold, pick_threshold_for_sensitivity
 from ..reporting import mirror_files, modern_figure_relatives, reports_dir_from_config
 from ..viz import save_calibration_plot, save_pr_curve, save_roc_curve
 from .ckpt import load_modern_model_from_checkpoint
-from .datamodule import FourViewOCTADataset, load_labels_as_subject_targets
+from .datamodule import FourViewOCTADataset, build_merged_record_map, load_labels_as_subject_targets
 
 
 def _device() -> torch.device:
@@ -46,9 +45,9 @@ def _predict(model: torch.nn.Module, loader: DataLoader, device: torch.device) -
     return sids, np.array(ys, dtype=float), np.array(ps, dtype=float)
 
 
-def _external_subject_ids(labels_df: Any, data_root: Path) -> list[str]:
-    records = build_subject_records(data_root)
-    have = {r.subject_id for r in records}
+def _external_subject_ids(labels_df: Any, data_root: Path, index_csv: Path) -> list[str]:
+    merged = build_merged_record_map(data_root, index_csv)
+    have = set(merged.keys())
     ids = [str(s) for s in labels_df["subject_id"].astype(str).tolist()]
     # preserve order, unique
     seen: set[str] = set()
@@ -63,7 +62,7 @@ def _external_subject_ids(labels_df: Any, data_root: Path) -> list[str]:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Evaluate a frozen checkpoint on an external OCTA cohort.")
     ap.add_argument("--external-data-root", type=Path, required=True, help="Root folder of external OCTA exports.")
-    ap.add_argument("--external-labels-csv", type=Path, required=True, help="Labels CSV (same columns as training labels.csv).")
+    ap.add_argument("--external-labels-csv", type=Path, required=True, help="Labels CSV (same columns as training dataset_index.csv).")
     ap.add_argument("--ckpt", type=Path, required=True)
     ap.add_argument("--out-dir", type=Path, required=True, help="Write predictions + plots + eval_report.json here.")
     ap.add_argument("--image-size", type=int, default=224)
@@ -81,7 +80,7 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     labels_df = load_labels_as_subject_targets(args.external_labels_csv)
-    subject_ids = _external_subject_ids(labels_df, args.external_data_root)
+    subject_ids = _external_subject_ids(labels_df, args.external_data_root, args.external_labels_csv)
     if len(subject_ids) == 0:
         raise SystemExit("No subjects overlap external labels and images under external-data-root.")
 
@@ -92,6 +91,7 @@ def main() -> int:
         image_size=args.image_size,
         augment=False,
         seed=42,
+        index_csv=args.external_labels_csv,
     )
     loader = DataLoader(ds, batch_size=args.batch_size, shuffle=False, num_workers=0)
 

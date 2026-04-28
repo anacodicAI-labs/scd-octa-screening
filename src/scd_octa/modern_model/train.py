@@ -129,6 +129,7 @@ def main() -> int:
         image_size=args.image_size,
         augment=True,
         seed=args.seed,
+        index_csv=args.labels_csv,
     )
     val_ds = FourViewOCTADataset(
         data_root=args.data_root,
@@ -137,6 +138,7 @@ def main() -> int:
         image_size=args.image_size,
         augment=False,
         seed=args.seed,
+        index_csv=args.labels_csv,
     )
 
     train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True, num_workers=0)
@@ -187,6 +189,13 @@ def main() -> int:
                 {"model_state": model.state_dict(), "spec": spec_to_checkpoint_dict(spec), "epoch": epoch},
                 best_path,
             )
+
+    if not best_path.is_file():
+        # Val AUC can be undefined (single-class val split); still persist last weights for eval.
+        torch.save(
+            {"model_state": model.state_dict(), "spec": spec_to_checkpoint_dict(spec), "epoch": int(args.epochs)},
+            best_path,
+        )
 
     # Load best and write a small training report on VAL (for tuning/visibility)
     ckpt = torch.load(best_path, map_location=device)

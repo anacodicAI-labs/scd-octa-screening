@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import tifffile
 
-from .io import build_subject_records
+from .io import build_subject_records_nested_or_flat
 
 
 def vessel_density_from_mask(mask: np.ndarray) -> float:
@@ -44,7 +44,7 @@ def main() -> int:
     out_dir: Path = args.out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    records = build_subject_records(args.data_root)
+    records = build_subject_records_nested_or_flat(args.data_root)
 
     rows: list[dict[str, object]] = []
     for r in records:
