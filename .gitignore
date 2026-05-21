@@ -91,3 +91,6 @@ torch_hub/
 # --- Logs ---
 *.log
 logs/
+__pycache__/
+results/clinical_labels.csv
+results/dataset_index.csv
